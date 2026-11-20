@@ -3,29 +3,29 @@ import { auth } from "@/lib/auth/server";
 
 export const dynamic = "force-dynamic";
 
-async function getAdmin() {
+type AdminContext = { ok: true; sql: ReturnType<typeof neon>; userId: string } | { ok: false; response: Response };\n\nasync function getAdmin(): Promise<AdminContext> {
   const { data, error } = await auth.getSession();
-  if (error || !data?.user) return { response: Response.json({ error: "Sign in required." }, { status: 401 }) };
-  if (!process.env.DATABASE_URL) return { response: Response.json({ error: "Database is not configured." }, { status: 503 }) };
+  if (error || !data?.user) return { ok: false, response: Response.json({ error: "Sign in required." }, { status: 401 }) };
+  if (!process.env.DATABASE_URL) return { ok: false, response: Response.json({ error: "Database is not configured." }, { status: 503 }) };
   const sql = neon(process.env.DATABASE_URL);
   try {
     const result = await sql.transaction([
       sql`select set_config('app.user_id', ${data.user.id}, true)`,
       sql`select app.is_site_admin() as allowed`,
     ]);
-    if (!result[1]?.[0]?.allowed) return { response: Response.json({ error: "Site administrator access is required to manage carrier connections." }, { status: 403 }) };
+    if (!result[1]?.[0]?.allowed) return { ok: false, response: Response.json({ error: "Site administrator access is required to manage carrier connections." }, { status: 403 }) };
   } catch {
-    return { response: Response.json({ error: "Carrier settings are unavailable for this account." }, { status: 403 }) };
+    return { ok: false, response: Response.json({ error: "Carrier settings are unavailable for this account." }, { status: 403 }) };
   }
-  return { sql, user: data.user };
+  return { ok: true, sql, userId: data.user.id };
 }
 
 export async function GET() {
   const context = await getAdmin();
-  if (!context.sql) return context.response;
+  if (!context.ok) return context.response;
   try {
     const result = await context.sql.transaction([
-      context.sql`select set_config('app.user_id', ${context.user.id}, true)`,
+      context.sql`select set_config('app.user_id', ${context.userId}, true)`,
       context.sql`select c.id, c.name, c.website, c.integration_status,
         cc.connection_type, cc.status as connection_status, cc.environment
         from app.carriers c

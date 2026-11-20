@@ -1,17 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { authClient } from "@/lib/auth/client";
 import {
   Activity, ArrowRight, ArrowUpRight, Bell, Building2, CarFront, CheckCircle2,
   ChevronDown, CircleHelp, ClipboardList, FileText, Filter, Home, LayoutDashboard,
-  LifeBuoy, Menu, Plus, Search, Settings, ShieldCheck, SlidersHorizontal, Sparkles,
+  LifeBuoy, LogOut, Menu, Plus, Search, Settings, ShieldCheck, SlidersHorizontal, Sparkles,
   Users, Wallet, X, Zap, BriefcaseBusiness, Umbrella, HeartPulse, Upload, BookOpen
 } from "lucide-react";
 
 type Submission = {
   id: string; insured: string; line: string; zip: string; status: string; carrier: string; date: string;
 };
-const STORAGE_KEY = "galini-rate-connect-submissions-v1";
+const STORAGE_KEY = "galini-rate-connect-submissions-v2";
 const lines = [
   { name: "Personal Auto", detail: "Private passenger vehicles", icon: CarFront, color: "blue" },
   { name: "Homeowners", detail: "Home, condo & renters", icon: Home, color: "violet" },
@@ -26,11 +27,7 @@ const lines = [
   { name: "Inland Marine", detail: "Tools, equipment & transit", icon: BriefcaseBusiness, color: "violet" },
   { name: "Cyber Liability", detail: "Privacy & network risks", icon: ShieldCheck, color: "green" },
 ];
-const initialSubmissions: Submission[] = [
-  { id: "GRC-10042", insured: "Northstar Auto Group", line: "Commercial Auto", zip: "07001", status: "Under review", carrier: "Awaiting carrier", date: "Nov 20, 2026" },
-  { id: "GRC-10041", insured: "Oak & Stone Properties", line: "Commercial Package", zip: "07002", status: "Information needed", carrier: "Appetite review", date: "Nov 19, 2026" },
-  { id: "GRC-10040", insured: "Bright Path Consulting", line: "Professional Liability", zip: "07003", status: "Draft", carrier: "Not submitted", date: "Nov 18, 2026" },
-];
+const initialSubmissions: Submission[] = [];
 const nav = [
   { group: "WORKSPACE", items: [
     { name: "Overview", icon: LayoutDashboard }, { name: "New Quote", icon: Plus },
@@ -59,7 +56,7 @@ export default function Dashboard() {
     try {
       const saved = window.localStorage.getItem(STORAGE_KEY);
       if (saved) setSubmissions(JSON.parse(saved) as Submission[]);
-    } catch { /* Keep the safe starter data if browser storage is unavailable. */ }
+    } catch { /* Keep the workspace empty if browser storage is unavailable. */ }
     setLoaded(true);
   }, []);
   useEffect(() => {
@@ -87,6 +84,11 @@ export default function Dashboard() {
 
   const statusClass = (status: string) => status === "Under review" ? "status-review" : status === "Information needed" ? "status-needed" : "status-draft";
 
+  const signOut = async () => {
+    await authClient.signOut();
+    window.location.assign("/auth/sign-in");
+  };
+
   const renderSubmissions = () => <div className="panel submissions-panel">
     <div className="panel-heading"><div><h2>Submission pipeline</h2><p>Draft applications and submissions in your workspace.</p></div><button className="primary-button" onClick={() => setShowQuote(true)}><Plus size={15}/> New submission</button></div>
     <div className="table-toolbar"><div className="search-box"><Search size={15}/><input placeholder="Search insured, ID or line..." value={query} onChange={e => setQuery(e.target.value)}/></div><span className="muted">{filtered.length} records</span></div>
@@ -109,7 +111,7 @@ export default function Dashboard() {
       "Documents": { title: "Document center", desc: "Organize applications, ACORD forms, loss runs, quotes and policy documents.", steps: ["No documents have been uploaded.", "Private document storage and access controls must be configured before production use.", "Only upload documents you are authorized to store and process."] },
       "Reports": { title: "Reports & analytics", desc: "Monitor submissions, quote activity and agency production.", steps: [`${submissions.length} submission records currently appear in this browser workspace.`, "Agency-wide reporting requires shared database records.", "Live carrier metrics will be shown only after authorized integrations are connected."] },
       "Training & Learning": { title: "Training & learning", desc: "Reference insurance workflows, coverage concepts and platform guidance.", steps: ["Training content will be added in this platform.", "Training progress and agency reporting require user accounts.", "This workspace is separate from the Galini Training Portal."] },
-      "Settings": { title: "Workspace settings", desc: "Configure profile, agency preferences, permissions and integrations.", steps: ["Authentication and role-based access are not yet enabled.", "Set agency profile and user roles before inviting staff.", "Database and secret configuration are the next implementation stage."] },
+      "Settings": { title: "Workspace settings", desc: "Configure profile, agency preferences, permissions and integrations.", steps: ["Authentication is connected; agency approval and role-based permissions are still being completed.", "Set agency profile and user roles before inviting staff.", "Shared agency records remain disabled until membership authorization and row-level security checks are complete."] },
       "Help Center": { title: "Help center", desc: "Get assistance with quoting workflows and platform setup.", steps: ["Use the navigation to access each workspace area.", "New quotes currently create local draft records in this browser.", "Carrier rating and binding are not active until authorized integrations are configured."] },
     };
     const current = info[active] ?? info["Help Center"];
@@ -125,7 +127,7 @@ export default function Dashboard() {
       <div className="sidebar-bottom"><div className="support-card"><div className="support-icon"><LifeBuoy size={17}/></div><b>Need a hand?</b><p>Find guidance for your insurance workflow.</p><button onClick={() => chooseNav("Help Center")}>Visit help center <ArrowRight size={13}/></button></div><div className="profile"><div className="profile-avatar">NM</div><div className="profile-copy"><b>Agency user</b><span>Workspace preview</span></div><button aria-label="Profile menu"><ChevronDown size={15}/></button></div></div>
     </aside>
     <section className="main-area">
-      <header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Open menu"><Menu size={20}/></button><div className="breadcrumb">Workspace <span>/</span> <b>{active}</b></div><div className="top-actions"><div className="environment"><i/> Development workspace</div><button className="icon-button" aria-label="Help" onClick={() => chooseNav("Help Center")}><CircleHelp size={18}/></button><button className="icon-button notification" aria-label="Notifications"><Bell size={18}/><i/></button><div className="top-avatar">NM</div></div></header>
+      <header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Open menu"><Menu size={20}/></button><div className="breadcrumb">Workspace <span>/</span> <b>{active}</b></div><div className="top-actions"><div className="environment"><i/> Development workspace</div><button className="text-button" onClick={() => window.location.assign("/diagnostics")}>Diagnostics</button><button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={17}/></button><button className="icon-button" aria-label="Help" onClick={() => chooseNav("Help Center")}><CircleHelp size={18}/></button><button className="icon-button notification" aria-label="Notifications"><Bell size={18}/><i/></button><div className="top-avatar">NM</div></div></header>
       <div className="content">
         <div className="welcome-row"><div><div className="eyebrow"><span className="eyebrow-dot"/> GALINI RATE & CONNECT</div><h1>{active === "Overview" ? "Good morning" : active}</h1><p className="welcome-sub">{active === "Overview" ? "Your insurance workflow workspace at a glance." : "Manage this area of your agency workspace."}</p></div><button className="primary-button" onClick={() => setShowQuote(true)}><Plus size={17}/> Start a new quote</button></div>
         {active === "Overview" ? <>

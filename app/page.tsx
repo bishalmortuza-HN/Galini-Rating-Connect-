@@ -89,7 +89,7 @@ export default function Dashboard() {
 
   const renderSubmissions = () => <div className="panel submissions-panel">
     <div className="panel-heading"><div><h2>Submission pipeline</h2><p>Draft applications and submissions in your workspace.</p></div><button className="primary-button" onClick={() => setShowQuote(true)}><Plus size={15}/> New submission</button></div>
-    <div className="table-toolbar"><div className="search-box"><Search size={15}/><input placeholder="Search insured, ID or line..." value={query} onChange={e => setQuery(e.target.value}/></div><span className="muted">{filtered.length} records</span></div>
+    <div className="table-toolbar"><div className="search-box"><Search size={15}/><input placeholder="Search insured, ID or line..." value={query} onChange={e => setQuery(e.target.value)}/></div><span className="muted">{filtered.length} records</span></div>
     <div className="table-wrap"><table><thead><tr><th>INSURED / ID</th><th>LINE</th><th>ZIP</th><th>STATUS</th><th>UPDATED</th></tr></thead><tbody>
       {filtered.map(s => <tr key={s.id}><td><b>{s.insured}</b><small>{s.id}</small></td><td>{s.line}</td><td>{s.zip}</td><td><span className={`status ${statusClass(s.status)}`}>{s.status}</span></td><td>{s.date}</td></tr>)}
       {!filtered.length && <tr><td colSpan={5} className="empty-row">No matching submissions. Create a quote to get started.</td></tr>}

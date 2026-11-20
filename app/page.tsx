@@ -1,17 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { authClient } from "@/lib/auth/client";
+import AgencyRequestPanel from "@/app/components/agency-request";
+import AdminReviewPanel from "@/app/components/admin-review";
 import {
   Activity, ArrowRight, ArrowUpRight, Bell, Building2, CarFront, CheckCircle2,
   ChevronDown, CircleHelp, ClipboardList, FileText, Filter, Home, LayoutDashboard,
-  LifeBuoy, Menu, Plus, Search, Settings, ShieldCheck, SlidersHorizontal, Sparkles,
+  LifeBuoy, LogOut, Menu, Plus, Search, Settings, ShieldCheck, SlidersHorizontal, Sparkles,
   Users, Wallet, X, Zap, BriefcaseBusiness, Umbrella, HeartPulse, Upload, BookOpen
 } from "lucide-react";
 
+type AccountProfile = { id: string; email: string; full_name: string; site_role: string; status: string };
+type AgencyMembership = { id: string; display_name: string; agency_status: string; role: string; membership_status: string };
 type Submission = {
   id: string; insured: string; line: string; zip: string; status: string; carrier: string; date: string;
 };
-const STORAGE_KEY = "galini-rate-connect-submissions-v1";
+const STORAGE_KEY = "galini-rate-connect-submissions-v2";
 const lines = [
   { name: "Personal Auto", detail: "Private passenger vehicles", icon: CarFront, color: "blue" },
   { name: "Homeowners", detail: "Home, condo & renters", icon: Home, color: "violet" },
@@ -26,11 +31,7 @@ const lines = [
   { name: "Inland Marine", detail: "Tools, equipment & transit", icon: BriefcaseBusiness, color: "violet" },
   { name: "Cyber Liability", detail: "Privacy & network risks", icon: ShieldCheck, color: "green" },
 ];
-const initialSubmissions: Submission[] = [
-  { id: "GRC-10042", insured: "Northstar Auto Group", line: "Commercial Auto", zip: "07001", status: "Under review", carrier: "Awaiting carrier", date: "Nov 20, 2026" },
-  { id: "GRC-10041", insured: "Oak & Stone Properties", line: "Commercial Package", zip: "07002", status: "Information needed", carrier: "Appetite review", date: "Nov 19, 2026" },
-  { id: "GRC-10040", insured: "Bright Path Consulting", line: "Professional Liability", zip: "07003", status: "Draft", carrier: "Not submitted", date: "Nov 18, 2026" },
-];
+const initialSubmissions: Submission[] = [];
 const nav = [
   { group: "WORKSPACE", items: [
     { name: "Overview", icon: LayoutDashboard }, { name: "New Quote", icon: Plus },
@@ -38,7 +39,7 @@ const nav = [
     { name: "Quote Comparison", icon: SlidersHorizontal }, { name: "Policies & Renewals", icon: FileText },
   ]},
   { group: "MANAGEMENT", items: [
-    { name: "Agencies & Agents", icon: Users }, { name: "Carrier Connections", icon: ShieldCheck },
+    { name: "Site Admin", icon: ShieldCheck }, { name: "Agencies & Agents", icon: Users }, { name: "Carrier Connections", icon: ShieldCheck },
     { name: "Documents", icon: FileText }, { name: "Reports", icon: Activity },
   ]},
   { group: "SUPPORT", items: [{ name: "Training & Learning", icon: BookOpen }, { name: "Settings", icon: Settings }, { name: "Help Center", icon: LifeBuoy }]},
@@ -54,17 +55,32 @@ export default function Dashboard() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [submissions, setSubmissions] = useState<Submission[]>(initialSubmissions);
   const [loaded, setLoaded] = useState(false);
+  const [account, setAccount] = useState<AccountProfile | null>(null);
+  const [agencies, setAgencies] = useState<AgencyMembership[]>([]);
+  const [accountError, setAccountError] = useState("");
 
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(STORAGE_KEY);
       if (saved) setSubmissions(JSON.parse(saved) as Submission[]);
-    } catch { /* Keep the safe starter data if browser storage is unavailable. */ }
+    } catch { /* Keep the workspace empty if browser storage is unavailable. */ }
     setLoaded(true);
   }, []);
   useEffect(() => {
     if (loaded) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(submissions));
   }, [submissions, loaded]);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/me", { cache: "no-store" })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to load your account.");
+        if (active) { setAccount(data.profile as AccountProfile); setAgencies(data.agencies as AgencyMembership[]); }
+      })
+      .catch(error => { if (active) setAccountError(error instanceof Error ? error.message : "Unable to load your account."); });
+    return () => { active = false; };
+  }, []);
 
   const filtered = useMemo(() => submissions.filter(s =>
     (s.insured + s.id + s.line + s.status).toLowerCase().includes(query.toLowerCase())
@@ -87,6 +103,11 @@ export default function Dashboard() {
 
   const statusClass = (status: string) => status === "Under review" ? "status-review" : status === "Information needed" ? "status-needed" : "status-draft";
 
+  const signOut = async () => {
+    await authClient.signOut();
+    window.location.assign("/auth/sign-in");
+  };
+
   const renderSubmissions = () => <div className="panel submissions-panel">
     <div className="panel-heading"><div><h2>Submission pipeline</h2><p>Draft applications and submissions in your workspace.</p></div><button className="primary-button" onClick={() => setShowQuote(true)}><Plus size={15}/> New submission</button></div>
     <div className="table-toolbar"><div className="search-box"><Search size={15}/><input placeholder="Search insured, ID or line..." value={query} onChange={e => setQuery(e.target.value)}/></div><span className="muted">{filtered.length} records</span></div>
@@ -100,16 +121,18 @@ export default function Dashboard() {
     if (active === "Overview") return null;
     if (active === "New Quote") return <div className="panel"><div className="panel-heading"><div><h2>Start a new quote</h2><p>Select a line of business and enter applicant details.</p></div></div><div className="line-grid">{lines.map(line => { const Icon = line.icon; return <button className="line-card" key={line.name} onClick={() => { setSelectedLine(line.name); setShowQuote(true); }}><span className={`line-icon ${line.color}`}><Icon size={19}/></span><span className="line-text"><b>{line.name}</b><small>{line.detail}</small></span><ArrowUpRight size={16}/></button>; })}</div></div>;
     if (active === "Submissions") return renderSubmissions();
+    if (active === "Agencies & Agents") return <AgencyRequestPanel memberships={agencies}/>;
+    if (active === "Site Admin") return <AdminReviewPanel/>;
     const info: Record<string, { title: string; desc: string; steps: string[] }> = {
       "Appetite Finder": { title: "Carrier appetite finder", desc: "Review configured underwriting guidelines and identify potential market fit.", steps: ["No carrier appetite rules have been configured yet.", "Add carrier products, states, classes and eligibility rules.", "Treat every result as guidance only—not a quote or carrier approval."] },
       "Quote Comparison": { title: "Quote comparison", desc: "Compare carrier proposals side by side when verified quotes are available.", steps: ["No carrier quotes are connected yet.", "Live premiums will be clearly distinguished from test or manually entered data.", "Coverage limits, deductibles, exclusions and payment terms belong in each comparison."] },
       "Policies & Renewals": { title: "Policies & renewals", desc: "Keep issued policies, effective dates and renewal activity organized.", steps: ["No policy records have been added.", "Policy records should be created only from verified bind or issue confirmation.", "Renewal reminders and activity history will appear here."] },
-      "Agencies & Agents": { title: "Agencies & agents", desc: "Manage agency membership, agent access and workspace roles.", steps: ["Agency and agent records are not connected to the live database yet.", "Agency admins will manage invitations and memberships.", "Site administrators will review agency approvals and access."] },
+      "Agencies & Agents": { title: "Agencies & agents", desc: "Request agency registration and manage agency membership.", steps: ["Submit your agency details for site administrator review.", "Agency approval and user activation are separate from sign-in.", "Agent invitations and role management will be enabled after approval."] },
       "Carrier Connections": { title: "Carrier connections", desc: "Connect approved carrier or aggregator integrations securely.", steps: ["No live carrier integrations are configured.", "Connection setup requires authorized API credentials and carrier permission.", "Never enter carrier passwords or API secrets into public notes or quote forms."] },
       "Documents": { title: "Document center", desc: "Organize applications, ACORD forms, loss runs, quotes and policy documents.", steps: ["No documents have been uploaded.", "Private document storage and access controls must be configured before production use.", "Only upload documents you are authorized to store and process."] },
       "Reports": { title: "Reports & analytics", desc: "Monitor submissions, quote activity and agency production.", steps: [`${submissions.length} submission records currently appear in this browser workspace.`, "Agency-wide reporting requires shared database records.", "Live carrier metrics will be shown only after authorized integrations are connected."] },
       "Training & Learning": { title: "Training & learning", desc: "Reference insurance workflows, coverage concepts and platform guidance.", steps: ["Training content will be added in this platform.", "Training progress and agency reporting require user accounts.", "This workspace is separate from the Galini Training Portal."] },
-      "Settings": { title: "Workspace settings", desc: "Configure profile, agency preferences, permissions and integrations.", steps: ["Authentication and role-based access are not yet enabled.", "Set agency profile and user roles before inviting staff.", "Database and secret configuration are the next implementation stage."] },
+      "Settings": { title: "Workspace settings", desc: "Configure profile, agency preferences, permissions and integrations.", steps: ["Authentication is connected; agency approval and role-based permissions are still being completed.", "Set agency profile and user roles before inviting staff.", "Shared agency records remain disabled until membership authorization and row-level security checks are complete."] },
       "Help Center": { title: "Help center", desc: "Get assistance with quoting workflows and platform setup.", steps: ["Use the navigation to access each workspace area.", "New quotes currently create local draft records in this browser.", "Carrier rating and binding are not active until authorized integrations are configured."] },
     };
     const current = info[active] ?? info["Help Center"];
@@ -120,14 +143,18 @@ export default function Dashboard() {
     {mobileOpen && <button className="mobile-scrim" aria-label="Close menu" onClick={() => setMobileOpen(false)} />}
     <aside className={`sidebar ${mobileOpen ? "sidebar-open" : ""}`}>
       <div className="brand"><div className="brand-mark"><span>G</span><i/></div><div><div className="brand-name">GALINI</div><div className="brand-sub">RATE & CONNECT</div></div><button className="close-menu" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X size={18}/></button></div>
-      <div className="workspace-switch"><div className="workspace-avatar">MA</div><div className="workspace-copy"><b>Mogul Agency Services</b><span>Agency workspace</span></div><ChevronDown size={15}/></div>
-      <nav className="nav">{nav.map(section => <div className="nav-section" key={section.group}><div className="nav-label">{section.group}</div>{section.items.map(item => { const Icon = item.icon; return <button key={item.name} onClick={() => chooseNav(item.name)} className={`nav-item ${active === item.name ? "nav-active" : ""}`}><Icon size={17} strokeWidth={1.8}/><span>{item.name}</span>{item.name === "Submissions" && <em>{submissions.length}</em>}</button>; })}</div>)}</nav>
-      <div className="sidebar-bottom"><div className="support-card"><div className="support-icon"><LifeBuoy size={17}/></div><b>Need a hand?</b><p>Find guidance for your insurance workflow.</p><button onClick={() => chooseNav("Help Center")}>Visit help center <ArrowRight size={13}/></button></div><div className="profile"><div className="profile-avatar">NM</div><div className="profile-copy"><b>Agency user</b><span>Workspace preview</span></div><button aria-label="Profile menu"><ChevronDown size={15}/></button></div></div>
+      <div className="workspace-switch"><div className="workspace-avatar">{(agencies[0]?.display_name || "G").slice(0,2).toUpperCase()}</div><div className="workspace-copy"><b>{agencies[0]?.display_name || "Galini workspace"}</b><span>{agencies.length ? agencies[0].role.replace("_"," ") : "No approved agency"}</span></div><ChevronDown size={15}/></div>
+      <nav className="nav">{nav.map(section => <div className="nav-section" key={section.group}><div className="nav-label">{section.group}</div>{section.items.filter(item => item.name !== "Site Admin" || account?.site_role === "site_admin").map(item => { const Icon = item.icon; return <button key={item.name} onClick={() => chooseNav(item.name)} className={`nav-item ${active === item.name ? "nav-active" : ""}`}><Icon size={17} strokeWidth={1.8}/><span>{item.name}</span>{item.name === "Submissions" && <em>{submissions.length}</em>}</button>; })}</div>)}</nav>
+      <div className="sidebar-bottom"><div className="support-card"><div className="support-icon"><LifeBuoy size={17}/></div><b>Need a hand?</b><p>Find guidance for your insurance workflow.</p><button onClick={() => chooseNav("Help Center")}>Visit help center <ArrowRight size={13}/></button></div><div className="profile"><div className="profile-avatar">{(account?.full_name || "GU").split(" ").map(part => part[0]).slice(0,2).join("").toUpperCase()}</div><div className="profile-copy"><b>{account?.full_name || "Loading account…"}</b><span>{account ? account.status.replace("_"," ") : "Account profile"}</span></div><button aria-label="Profile menu"><ChevronDown size={15}/></button></div></div>
     </aside>
     <section className="main-area">
-      <header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Open menu"><Menu size={20}/></button><div className="breadcrumb">Workspace <span>/</span> <b>{active}</b></div><div className="top-actions"><div className="environment"><i/> Development workspace</div><button className="icon-button" aria-label="Help" onClick={() => chooseNav("Help Center")}><CircleHelp size={18}/></button><button className="icon-button notification" aria-label="Notifications"><Bell size={18}/><i/></button><div className="top-avatar">NM</div></div></header>
+      <header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Open menu"><Menu size={20}/></button><div className="breadcrumb">Workspace <span>/</span> <b>{active}</b></div><div className="top-actions"><div className="environment"><i/> Development workspace</div><button className="text-button" onClick={() => window.location.assign("/diagnostics")}>Diagnostics</button><button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={17}/></button><button className="icon-button" aria-label="Help" onClick={() => chooseNav("Help Center")}><CircleHelp size={18}/></button><button className="icon-button notification" aria-label="Notifications"><Bell size={18}/><i/></button><div className="top-avatar">{(account?.full_name || "GU").split(" ").map(part => part[0]).slice(0,2).join("").toUpperCase()}</div></div></header>
       <div className="content">
-        <div className="welcome-row"><div><div className="eyebrow"><span className="eyebrow-dot"/> GALINI RATE & CONNECT</div><h1>{active === "Overview" ? "Good morning" : active}</h1><p className="welcome-sub">{active === "Overview" ? "Your insurance workflow workspace at a glance." : "Manage this area of your agency workspace."}</p></div><button className="primary-button" onClick={() => setShowQuote(true)}><Plus size={17}/> Start a new quote</button></div>
+         {accountError && <div className="notice"><div className="notice-icon"><ShieldCheck size={17}/></div><div><b>Account profile unavailable</b><p>{accountError}</p></div><button onClick={() => window.location.assign("/diagnostics")}>Diagnostics <ArrowRight size={14}/></button></div>}
+         {account?.status === "pending" && <div className="notice"><div className="notice-icon"><ShieldCheck size={17}/></div><div><b>Account awaiting administrator approval</b><p>Your sign-in is active, but agency workspace features will remain restricted until an administrator approves your account.</p></div></div>}
+         {account?.status === "suspended" && <div className="notice"><div className="notice-icon"><ShieldCheck size={17}/></div><div><b>Account suspended</b><p>Please contact your Galini site administrator to review access.</p></div></div>}
+         {account?.status === "active" && agencies.length === 0 && <div className="notice"><div className="notice-icon"><Building2 size={17}/></div><div><b>No approved agency membership</b><p>Your account is active, but no approved agency workspace is assigned yet.</p></div></div>}
+        <div className="welcome-row"><div><div className="eyebrow"><span className="eyebrow-dot"/> GALINI RATE & CONNECT</div><h1>{active === "Overview" ? `Good morning${account?.full_name ? `, ${account.full_name.split(" ")[0]}` : ""}` : active}</h1><p className="welcome-sub">{active === "Overview" ? "Your insurance workflow workspace at a glance." : "Manage this area of your agency workspace."}</p></div><button className="primary-button" onClick={() => setShowQuote(true)}><Plus size={17}/> Start a new quote</button></div>
         {active === "Overview" ? <>
           <div className="notice"><div className="notice-icon"><Zap size={17}/></div><div><b>Development workspace — setup in progress</b><p>Carrier connections and live rating are not active. Current draft records are stored in this browser only.</p></div><button onClick={() => chooseNav("Carrier Connections")}>View connections <ArrowRight size={14}/></button></div>
           <div className="stat-grid">

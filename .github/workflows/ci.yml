@@ -1,0 +1,34 @@
+name: Galini CI
+
+on:
+  push:
+    branches:
+      - codex/agency-profile-foundation
+  pull_request:
+    branches:
+      - main
+      - codex/agency-profile-foundation
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Type check
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
+        env:
+          DATABASE_URL: postgres://placeholder:placeholder@localhost:5432/placeholder
+          NEON_AUTH_BASE_URL: https://example.neon.tech/example/auth
+          NEON_AUTH_COOKIE_SECRET: galini-ci-placeholder-secret-value-not-for-production-000000

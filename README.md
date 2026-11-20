@@ -22,9 +22,13 @@ Never commit real secrets or place them in client-side code.
 
 ## Authentication and account provisioning
 
-Neon Managed Better Auth is integrated using `@neon/auth`. The dashboard root is protected by the Next.js auth proxy. Authenticated visits to `/api/me` create a minimal Galini profile with the database defaults (`site_role = agent`, `status = pending`) and return only the signed-in user's profile and approved active agency memberships.
+Neon Managed Better Auth is integrated using `@neon/auth`. The dashboard root is protected by the Next.js auth proxy. Authenticated visits to `/api/me` create a minimal Galini profile with the database defaults (`site_role = agent`, `status = pending`) and return only the signed-in user's profile and agency memberships.
 
-Registration does not grant site-admin rights, agency membership, carrier access, or permission to bind coverage. User approval and agency membership approval remain administrative workflows and are not self-service privileges.
+Users can submit an agency registration request from **Agencies & Agents**. Requests are stored as pending and the initial agency-admin membership remains invited until a site administrator approves the agency. Approval activates that agency membership and the requesting account. Sign-in alone never grants site-admin rights, agency membership, carrier access, or permission to bind coverage.
+
+## Database security
+
+Migration `db/migrations/0002_rls_and_agency_approval.sql` adds row-level security across all `app` tables, limits profile writes, and defines guarded functions for agency requests and administrator approvals. It has been tested on a separate Neon branch; it must still be reviewed and explicitly applied to the primary database before shared agency records are enabled.
 
 ## Diagnostics
 
@@ -32,7 +36,7 @@ Open `/diagnostics` to check whether authentication is configured and whether th
 
 ## Current feature boundaries
 
-The dashboard currently supports browser-local draft submissions only. Shared agency submissions remain disabled until complete row-level security policies and server-side authorization checks have been tested.
+The dashboard's quote drafts remain browser-local. Shared agency submissions are not enabled until the database migration is applied to the primary branch, an initial site administrator is securely provisioned, and the admin review endpoints and end-to-end tests are complete.
 
 Carrier appetite rules, carrier API rating, live quote comparisons, ACORD exchange, binding, policy issuance, and private document uploads remain disabled until authorized carrier integrations and secure workflows are configured. Sample or test data must never be represented as live carrier offers.
 

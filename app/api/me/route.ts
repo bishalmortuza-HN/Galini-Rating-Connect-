@@ -3,11 +3,7 @@ import { auth } from "@/lib/auth/server";
 
 export const dynamic = "force-dynamic";
 
-type SessionUser = {
-  id: string;
-  email: string;
-  name: string;
-};
+type SessionUser = { id: string; email: string; name: string };
 
 export async function GET() {
   const { data: session, error } = await auth.getSession();
@@ -19,7 +15,6 @@ export async function GET() {
   if (!user.id || !user.email || !user.name) {
     return Response.json({ error: "Authentication profile is incomplete." }, { status: 422, headers: { "Cache-Control": "no-store" } });
   }
-
   if (!process.env.DATABASE_URL) {
     return Response.json({ error: "Database is not configured." }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
@@ -30,19 +25,17 @@ export async function GET() {
       sql`select set_config('app.user_id', ${user.id}, true)`,
       sql`insert into app.users (auth_subject, email, full_name)
           values (${user.id}, ${user.email.toLowerCase()}, ${user.name})
-          on conflict (auth_subject) do update
-          set email = excluded.email, full_name = excluded.full_name, updated_at = now()`,
+          on conflict (auth_subject) do nothing`,
       sql`select id, email, full_name, site_role, status
-          from app.users
-          where auth_subject = ${user.id}
-          limit 1`,
-      sql`select a.id, a.display_name, am.role
+          from app.users where auth_subject = ${user.id} limit 1`,
+      sql`select a.id, a.display_name, a.status as agency_status,
+                 am.role, am.status as membership_status
           from app.agency_memberships am
           join app.agencies a on a.id = am.agency_id
           join app.users u on u.id = am.user_id
           where u.auth_subject = ${user.id}
-            and am.status = 'active'
-            and a.status = 'approved'
+            and am.status in ('active','invited')
+            and a.status in ('pending','approved')
           order by a.display_name`,
     ]);
 
@@ -54,10 +47,7 @@ export async function GET() {
       );
     }
 
-    return Response.json(
-      { profile, agencies: results[3] ?? [] },
-      { headers: { "Cache-Control": "no-store" } }
-    );
+    return Response.json({ profile, agencies: results[3] ?? [] }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return Response.json(
       { error: "Unable to load the account profile. Check the database and account provisioning setup." },

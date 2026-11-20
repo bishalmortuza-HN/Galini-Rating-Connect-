@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { authClient } from "@/lib/auth/client";
+import AgencyRequestPanel from "@/app/components/agency-request";
 import {
   Activity, ArrowRight, ArrowUpRight, Bell, Building2, CarFront, CheckCircle2,
   ChevronDown, CircleHelp, ClipboardList, FileText, Filter, Home, LayoutDashboard,
@@ -10,7 +11,7 @@ import {
 } from "lucide-react";
 
 type AccountProfile = { id: string; email: string; full_name: string; site_role: string; status: string };
-type AgencyMembership = { id: string; display_name: string; role: string };
+type AgencyMembership = { id: string; display_name: string; agency_status: string; role: string; membership_status: string };
 type Submission = {
   id: string; insured: string; line: string; zip: string; status: string; carrier: string; date: string;
 };
@@ -119,11 +120,12 @@ export default function Dashboard() {
     if (active === "Overview") return null;
     if (active === "New Quote") return <div className="panel"><div className="panel-heading"><div><h2>Start a new quote</h2><p>Select a line of business and enter applicant details.</p></div></div><div className="line-grid">{lines.map(line => { const Icon = line.icon; return <button className="line-card" key={line.name} onClick={() => { setSelectedLine(line.name); setShowQuote(true); }}><span className={`line-icon ${line.color}`}><Icon size={19}/></span><span className="line-text"><b>{line.name}</b><small>{line.detail}</small></span><ArrowUpRight size={16}/></button>; })}</div></div>;
     if (active === "Submissions") return renderSubmissions();
+    if (active === "Agencies & Agents") return <AgencyRequestPanel memberships={agencies}/>;
     const info: Record<string, { title: string; desc: string; steps: string[] }> = {
       "Appetite Finder": { title: "Carrier appetite finder", desc: "Review configured underwriting guidelines and identify potential market fit.", steps: ["No carrier appetite rules have been configured yet.", "Add carrier products, states, classes and eligibility rules.", "Treat every result as guidance only—not a quote or carrier approval."] },
       "Quote Comparison": { title: "Quote comparison", desc: "Compare carrier proposals side by side when verified quotes are available.", steps: ["No carrier quotes are connected yet.", "Live premiums will be clearly distinguished from test or manually entered data.", "Coverage limits, deductibles, exclusions and payment terms belong in each comparison."] },
       "Policies & Renewals": { title: "Policies & renewals", desc: "Keep issued policies, effective dates and renewal activity organized.", steps: ["No policy records have been added.", "Policy records should be created only from verified bind or issue confirmation.", "Renewal reminders and activity history will appear here."] },
-      "Agencies & Agents": { title: "Agencies & agents", desc: "Manage agency membership, agent access and workspace roles.", steps: ["Agency and agent records are not connected to the live database yet.", "Agency admins will manage invitations and memberships.", "Site administrators will review agency approvals and access."] },
+      "Agencies & Agents": { title: "Agencies & agents", desc: "Request agency registration and manage agency membership.", steps: ["Submit your agency details for site administrator review.", "Agency approval and user activation are separate from sign-in.", "Agent invitations and role management will be enabled after approval."] },
       "Carrier Connections": { title: "Carrier connections", desc: "Connect approved carrier or aggregator integrations securely.", steps: ["No live carrier integrations are configured.", "Connection setup requires authorized API credentials and carrier permission.", "Never enter carrier passwords or API secrets into public notes or quote forms."] },
       "Documents": { title: "Document center", desc: "Organize applications, ACORD forms, loss runs, quotes and policy documents.", steps: ["No documents have been uploaded.", "Private document storage and access controls must be configured before production use.", "Only upload documents you are authorized to store and process."] },
       "Reports": { title: "Reports & analytics", desc: "Monitor submissions, quote activity and agency production.", steps: [`${submissions.length} submission records currently appear in this browser workspace.`, "Agency-wide reporting requires shared database records.", "Live carrier metrics will be shown only after authorized integrations are connected."] },

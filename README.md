@@ -26,6 +26,10 @@ Neon Managed Better Auth is integrated using `@neon/auth`. The dashboard root is
 
 Users can submit an agency registration request from **Agencies & Agents**. Requests are stored as pending and the initial agency-admin membership remains invited until a site administrator approves the agency. Approval activates that agency membership and the requesting account. Sign-in alone never grants site-admin rights, agency membership, carrier access, or permission to bind coverage.
 
+## Administrator setup
+
+The **Site Admin** review queue is shown only to accounts whose database role is `site_admin`. The first site administrator must be provisioned by the database owner after that person has registered and signed in; there is intentionally no public self-service admin bootstrap. Subsequent user and agency reviews are performed through database-guarded administrator functions.
+
 ## Database security
 
 Migration `db/migrations/0002_rls_and_agency_approval.sql` adds row-level security across all `app` tables, limits profile writes, and defines guarded functions for agency requests and administrator approvals. It has been tested on a separate Neon branch; it must still be reviewed and explicitly applied to the primary database before shared agency records are enabled.
@@ -36,7 +40,7 @@ Open `/diagnostics` to check whether authentication is configured and whether th
 
 ## Current feature boundaries
 
-The dashboard's quote drafts remain browser-local. Shared agency submissions are not enabled until the database migration is applied to the primary branch, an initial site administrator is securely provisioned, and the admin review endpoints and end-to-end tests are complete.
+The dashboard's quote drafts remain browser-local. Shared agency submissions are not enabled until the database migration is applied to the primary branch, an initial site administrator is securely provisioned, and end-to-end tests are complete.
 
 Carrier appetite rules, carrier API rating, live quote comparisons, ACORD exchange, binding, policy issuance, and private document uploads remain disabled until authorized carrier integrations and secure workflows are configured. Sample or test data must never be represented as live carrier offers.
 

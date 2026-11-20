@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { authClient } from "@/lib/auth/client";
 import AgencyRequestPanel from "@/app/components/agency-request";
+import AdminReviewPanel from "@/app/components/admin-review";
 import {
   Activity, ArrowRight, ArrowUpRight, Bell, Building2, CarFront, CheckCircle2,
   ChevronDown, CircleHelp, ClipboardList, FileText, Filter, Home, LayoutDashboard,
@@ -38,7 +39,7 @@ const nav = [
     { name: "Quote Comparison", icon: SlidersHorizontal }, { name: "Policies & Renewals", icon: FileText },
   ]},
   { group: "MANAGEMENT", items: [
-    { name: "Agencies & Agents", icon: Users }, { name: "Carrier Connections", icon: ShieldCheck },
+    { name: "Site Admin", icon: ShieldCheck }, { name: "Agencies & Agents", icon: Users }, { name: "Carrier Connections", icon: ShieldCheck },
     { name: "Documents", icon: FileText }, { name: "Reports", icon: Activity },
   ]},
   { group: "SUPPORT", items: [{ name: "Training & Learning", icon: BookOpen }, { name: "Settings", icon: Settings }, { name: "Help Center", icon: LifeBuoy }]},
@@ -121,6 +122,7 @@ export default function Dashboard() {
     if (active === "New Quote") return <div className="panel"><div className="panel-heading"><div><h2>Start a new quote</h2><p>Select a line of business and enter applicant details.</p></div></div><div className="line-grid">{lines.map(line => { const Icon = line.icon; return <button className="line-card" key={line.name} onClick={() => { setSelectedLine(line.name); setShowQuote(true); }}><span className={`line-icon ${line.color}`}><Icon size={19}/></span><span className="line-text"><b>{line.name}</b><small>{line.detail}</small></span><ArrowUpRight size={16}/></button>; })}</div></div>;
     if (active === "Submissions") return renderSubmissions();
     if (active === "Agencies & Agents") return <AgencyRequestPanel memberships={agencies}/>;
+    if (active === "Site Admin") return <AdminReviewPanel/>;
     const info: Record<string, { title: string; desc: string; steps: string[] }> = {
       "Appetite Finder": { title: "Carrier appetite finder", desc: "Review configured underwriting guidelines and identify potential market fit.", steps: ["No carrier appetite rules have been configured yet.", "Add carrier products, states, classes and eligibility rules.", "Treat every result as guidance only—not a quote or carrier approval."] },
       "Quote Comparison": { title: "Quote comparison", desc: "Compare carrier proposals side by side when verified quotes are available.", steps: ["No carrier quotes are connected yet.", "Live premiums will be clearly distinguished from test or manually entered data.", "Coverage limits, deductibles, exclusions and payment terms belong in each comparison."] },
@@ -142,7 +144,7 @@ export default function Dashboard() {
     <aside className={`sidebar ${mobileOpen ? "sidebar-open" : ""}`}>
       <div className="brand"><div className="brand-mark"><span>G</span><i/></div><div><div className="brand-name">GALINI</div><div className="brand-sub">RATE & CONNECT</div></div><button className="close-menu" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X size={18}/></button></div>
       <div className="workspace-switch"><div className="workspace-avatar">{(agencies[0]?.display_name || "G").slice(0,2).toUpperCase()}</div><div className="workspace-copy"><b>{agencies[0]?.display_name || "Galini workspace"}</b><span>{agencies.length ? agencies[0].role.replace("_"," ") : "No approved agency"}</span></div><ChevronDown size={15}/></div>
-      <nav className="nav">{nav.map(section => <div className="nav-section" key={section.group}><div className="nav-label">{section.group}</div>{section.items.map(item => { const Icon = item.icon; return <button key={item.name} onClick={() => chooseNav(item.name)} className={`nav-item ${active === item.name ? "nav-active" : ""}`}><Icon size={17} strokeWidth={1.8}/><span>{item.name}</span>{item.name === "Submissions" && <em>{submissions.length}</em>}</button>; })}</div>)}</nav>
+      <nav className="nav">{nav.map(section => <div className="nav-section" key={section.group}><div className="nav-label">{section.group}</div>{section.items.filter(item => item.name !== "Site Admin" || account?.site_role === "site_admin").map(item => { const Icon = item.icon; return <button key={item.name} onClick={() => chooseNav(item.name)} className={`nav-item ${active === item.name ? "nav-active" : ""}`}><Icon size={17} strokeWidth={1.8}/><span>{item.name}</span>{item.name === "Submissions" && <em>{submissions.length}</em>}</button>; })}</div>)}</nav>
       <div className="sidebar-bottom"><div className="support-card"><div className="support-icon"><LifeBuoy size={17}/></div><b>Need a hand?</b><p>Find guidance for your insurance workflow.</p><button onClick={() => chooseNav("Help Center")}>Visit help center <ArrowRight size={13}/></button></div><div className="profile"><div className="profile-avatar">{(account?.full_name || "GU").split(" ").map(part => part[0]).slice(0,2).join("").toUpperCase()}</div><div className="profile-copy"><b>{account?.full_name || "Loading account…"}</b><span>{account ? account.status.replace("_"," ") : "Account profile"}</span></div><button aria-label="Profile menu"><ChevronDown size={15}/></button></div></div>
     </aside>
     <section className="main-area">

@@ -20,9 +20,11 @@ Configure these values in Netlify (Production and Deploy Preview contexts):
 
 Never commit real secrets or place them in client-side code.
 
-## Authentication
+## Authentication and account provisioning
 
-Neon Managed Better Auth is integrated through the Next.js server proxy. The dashboard root is protected by the auth proxy. New registrations create an authentication identity only; they do not grant site-admin rights, agency membership, carrier access, or permission to bind coverage.
+Neon Managed Better Auth is integrated using `@neon/auth`. The dashboard root is protected by the Next.js auth proxy. Authenticated visits to `/api/me` create a minimal Galini profile with the database defaults (`site_role = agent`, `status = pending`) and return only the signed-in user's profile and approved active agency memberships.
+
+Registration does not grant site-admin rights, agency membership, carrier access, or permission to bind coverage. User approval and agency membership approval remain administrative workflows and are not self-service privileges.
 
 ## Diagnostics
 
@@ -30,7 +32,7 @@ Open `/diagnostics` to check whether authentication is configured and whether th
 
 ## Current feature boundaries
 
-The dashboard currently supports browser-local draft submissions only. Shared agency records are not yet enabled because authenticated profile provisioning, agency approval, membership authorization, and row-level security enforcement must be completed first.
+The dashboard currently supports browser-local draft submissions only. Shared agency submissions remain disabled until complete row-level security policies and server-side authorization checks have been tested.
 
 Carrier appetite rules, carrier API rating, live quote comparisons, ACORD exchange, binding, policy issuance, and private document uploads remain disabled until authorized carrier integrations and secure workflows are configured. Sample or test data must never be represented as live carrier offers.
 

@@ -9,6 +9,8 @@ import {
   Users, Wallet, X, Zap, BriefcaseBusiness, Umbrella, HeartPulse, Upload, BookOpen
 } from "lucide-react";
 
+type AccountProfile = { id: string; email: string; full_name: string; site_role: string; status: string };
+type AgencyMembership = { id: string; display_name: string; role: string };
 type Submission = {
   id: string; insured: string; line: string; zip: string; status: string; carrier: string; date: string;
 };
@@ -51,6 +53,9 @@ export default function Dashboard() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [submissions, setSubmissions] = useState<Submission[]>(initialSubmissions);
   const [loaded, setLoaded] = useState(false);
+  const [account, setAccount] = useState<AccountProfile | null>(null);
+  const [agencies, setAgencies] = useState<AgencyMembership[]>([]);
+  const [accountError, setAccountError] = useState("");
 
   useEffect(() => {
     try {
@@ -62,6 +67,18 @@ export default function Dashboard() {
   useEffect(() => {
     if (loaded) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(submissions));
   }, [submissions, loaded]);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/me", { cache: "no-store" })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to load your account.");
+        if (active) { setAccount(data.profile as AccountProfile); setAgencies(data.agencies as AgencyMembership[]); }
+      })
+      .catch(error => { if (active) setAccountError(error instanceof Error ? error.message : "Unable to load your account."); });
+    return () => { active = false; };
+  }, []);
 
   const filtered = useMemo(() => submissions.filter(s =>
     (s.insured + s.id + s.line + s.status).toLowerCase().includes(query.toLowerCase())
@@ -122,14 +139,18 @@ export default function Dashboard() {
     {mobileOpen && <button className="mobile-scrim" aria-label="Close menu" onClick={() => setMobileOpen(false)} />}
     <aside className={`sidebar ${mobileOpen ? "sidebar-open" : ""}`}>
       <div className="brand"><div className="brand-mark"><span>G</span><i/></div><div><div className="brand-name">GALINI</div><div className="brand-sub">RATE & CONNECT</div></div><button className="close-menu" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X size={18}/></button></div>
-      <div className="workspace-switch"><div className="workspace-avatar">MA</div><div className="workspace-copy"><b>Mogul Agency Services</b><span>Agency workspace</span></div><ChevronDown size={15}/></div>
+      <div className="workspace-switch"><div className="workspace-avatar">{(agencies[0]?.display_name || "G").slice(0,2).toUpperCase()}</div><div className="workspace-copy"><b>{agencies[0]?.display_name || "Galini workspace"}</b><span>{agencies.length ? agencies[0].role.replace("_"," ") : "No approved agency"}</span></div><ChevronDown size={15}/></div>
       <nav className="nav">{nav.map(section => <div className="nav-section" key={section.group}><div className="nav-label">{section.group}</div>{section.items.map(item => { const Icon = item.icon; return <button key={item.name} onClick={() => chooseNav(item.name)} className={`nav-item ${active === item.name ? "nav-active" : ""}`}><Icon size={17} strokeWidth={1.8}/><span>{item.name}</span>{item.name === "Submissions" && <em>{submissions.length}</em>}</button>; })}</div>)}</nav>
-      <div className="sidebar-bottom"><div className="support-card"><div className="support-icon"><LifeBuoy size={17}/></div><b>Need a hand?</b><p>Find guidance for your insurance workflow.</p><button onClick={() => chooseNav("Help Center")}>Visit help center <ArrowRight size={13}/></button></div><div className="profile"><div className="profile-avatar">NM</div><div className="profile-copy"><b>Agency user</b><span>Workspace preview</span></div><button aria-label="Profile menu"><ChevronDown size={15}/></button></div></div>
+      <div className="sidebar-bottom"><div className="support-card"><div className="support-icon"><LifeBuoy size={17}/></div><b>Need a hand?</b><p>Find guidance for your insurance workflow.</p><button onClick={() => chooseNav("Help Center")}>Visit help center <ArrowRight size={13}/></button></div><div className="profile"><div className="profile-avatar">{(account?.full_name || "GU").split(" ").map(part => part[0]).slice(0,2).join("").toUpperCase()}</div><div className="profile-copy"><b>{account?.full_name || "Loading account…"}</b><span>{account ? account.status.replace("_"," ") : "Account profile"}</span></div><button aria-label="Profile menu"><ChevronDown size={15}/></button></div></div>
     </aside>
     <section className="main-area">
-      <header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Open menu"><Menu size={20}/></button><div className="breadcrumb">Workspace <span>/</span> <b>{active}</b></div><div className="top-actions"><div className="environment"><i/> Development workspace</div><button className="text-button" onClick={() => window.location.assign("/diagnostics")}>Diagnostics</button><button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={17}/></button><button className="icon-button" aria-label="Help" onClick={() => chooseNav("Help Center")}><CircleHelp size={18}/></button><button className="icon-button notification" aria-label="Notifications"><Bell size={18}/><i/></button><div className="top-avatar">NM</div></div></header>
+      <header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Open menu"><Menu size={20}/></button><div className="breadcrumb">Workspace <span>/</span> <b>{active}</b></div><div className="top-actions"><div className="environment"><i/> Development workspace</div><button className="text-button" onClick={() => window.location.assign("/diagnostics")}>Diagnostics</button><button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={17}/></button><button className="icon-button" aria-label="Help" onClick={() => chooseNav("Help Center")}><CircleHelp size={18}/></button><button className="icon-button notification" aria-label="Notifications"><Bell size={18}/><i/></button><div className="top-avatar">{(account?.full_name || "GU").split(" ").map(part => part[0]).slice(0,2).join("").toUpperCase()}</div></div></header>
       <div className="content">
-        <div className="welcome-row"><div><div className="eyebrow"><span className="eyebrow-dot"/> GALINI RATE & CONNECT</div><h1>{active === "Overview" ? "Good morning" : active}</h1><p className="welcome-sub">{active === "Overview" ? "Your insurance workflow workspace at a glance." : "Manage this area of your agency workspace."}</p></div><button className="primary-button" onClick={() => setShowQuote(true)}><Plus size={17}/> Start a new quote</button></div>
+         {accountError && <div className="notice"><div className="notice-icon"><ShieldCheck size={17}/></div><div><b>Account profile unavailable</b><p>{accountError}</p></div><button onClick={() => window.location.assign("/diagnostics")}>Diagnostics <ArrowRight size={14}/></button></div>}
+         {account?.status === "pending" && <div className="notice"><div className="notice-icon"><ShieldCheck size={17}/></div><div><b>Account awaiting administrator approval</b><p>Your sign-in is active, but agency workspace features will remain restricted until an administrator approves your account.</p></div></div>}
+         {account?.status === "suspended" && <div className="notice"><div className="notice-icon"><ShieldCheck size={17}/></div><div><b>Account suspended</b><p>Please contact your Galini site administrator to review access.</p></div></div>}
+         {account?.status === "active" && agencies.length === 0 && <div className="notice"><div className="notice-icon"><Building2 size={17}/></div><div><b>No approved agency membership</b><p>Your account is active, but no approved agency workspace is assigned yet.</p></div></div>}
+        <div className="welcome-row"><div><div className="eyebrow"><span className="eyebrow-dot"/> GALINI RATE & CONNECT</div><h1>{active === "Overview" ? `Good morning${account?.full_name ? `, ${account.full_name.split(" ")[0]}` : ""}` : active}</h1><p className="welcome-sub">{active === "Overview" ? "Your insurance workflow workspace at a glance." : "Manage this area of your agency workspace."}</p></div><button className="primary-button" onClick={() => setShowQuote(true)}><Plus size={17}/> Start a new quote</button></div>
         {active === "Overview" ? <>
           <div className="notice"><div className="notice-icon"><Zap size={17}/></div><div><b>Development workspace — setup in progress</b><p>Carrier connections and live rating are not active. Current draft records are stored in this browser only.</p></div><button onClick={() => chooseNav("Carrier Connections")}>View connections <ArrowRight size={14}/></button></div>
           <div className="stat-grid">

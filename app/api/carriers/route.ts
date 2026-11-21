@@ -25,8 +25,9 @@ async function getAdmin(): Promise<AdminContext> {
     if (!result[1]?.[0]?.allowed) {
       return { ok: false, response: Response.json({ error: "Site administrator access is required to manage carrier connections." }, { status: 403 }) };
     }
-  } catch {
-    return { ok: false, response: Response.json({ error: "Carrier settings are unavailable for this account." }, { status: 403 }) };
+  } catch (error) {
+    console.error('[api/carriers] admin check failed', error);
+    return { ok: false, response: Response.json({ error: "Carrier settings could not verify administrator access because the database check failed. Refresh and try again.", code: "CARRIER_ADMIN_CHECK_FAILED" }, { status: 503 }) };
   }
   return { ok: true, userId: data.user.id };
 }
@@ -51,8 +52,9 @@ export async function GET() {
         order by c.name asc`,
     ]) as unknown as [Array<Record<string, unknown>>, Array<Record<string, unknown>>];
     return Response.json({ carriers: result[1] || [] }, { headers: { "Cache-Control": "no-store" } });
-  } catch {
-    return Response.json({ error: "Could not load carrier records." }, { status: 500 });
+  } catch (error) {
+    console.error('[api/carriers] GET failed', error);
+    return Response.json({ error: "Could not load carrier records. Check the database connection and administrator access.", code: "CARRIER_LOAD_FAILED" }, { status: 503 });
   }
 }
 

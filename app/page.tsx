@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { authClient } from "@/lib/auth/client";
 import AgencyRequestPanel from "@/app/components/agency-request";
 import AdminReviewPanel from "@/app/components/admin-review";
+import CarrierConnections from "@/app/components/carrier-connections";
 import {
   Activity, ArrowRight, ArrowUpRight, Bell, Building2, CarFront, CheckCircle2,
   ChevronDown, CircleHelp, ClipboardList, FileText, Filter, Home, LayoutDashboard,
@@ -123,6 +124,7 @@ export default function Dashboard() {
     if (active === "Submissions") return renderSubmissions();
     if (active === "Agencies & Agents") return <AgencyRequestPanel memberships={agencies}/>;
     if (active === "Site Admin") return <AdminReviewPanel/>;
+    if (active === "Carrier Connections") return <CarrierConnections/>;
     const info: Record<string, { title: string; desc: string; steps: string[] }> = {
       "Appetite Finder": { title: "Carrier appetite finder", desc: "Review configured underwriting guidelines and identify potential market fit.", steps: ["No carrier appetite rules have been configured yet.", "Add carrier products, states, classes and eligibility rules.", "Treat every result as guidance only—not a quote or carrier approval."] },
       "Quote Comparison": { title: "Quote comparison", desc: "Compare carrier proposals side by side when verified quotes are available.", steps: ["No carrier quotes are connected yet.", "Live premiums will be clearly distinguished from test or manually entered data.", "Coverage limits, deductibles, exclusions and payment terms belong in each comparison."] },

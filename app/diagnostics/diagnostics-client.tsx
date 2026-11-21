@@ -46,7 +46,10 @@ export default function DiagnosticsClient() {
           {row("Database connection", health.checks.databaseConnected)}
           <h2 style={{ fontSize: 14, margin: "25px 0 4px" }}>Feature availability</h2>
           {row("Authenticated workspace", health.capabilities.authenticatedWorkspace)}
+          {row("Submission drafts", health.capabilities.submissionDrafts)}
           {row("Shared agency records", health.capabilities.sharedAgencyRecords)}
+          {row("Carrier management", health.capabilities.carrierManagement)}
+          {row("Manual carrier portal workflow", health.capabilities.manualCarrierPortal)}
           {row("Carrier API rating", health.capabilities.carrierApiRating)}
           {row("Automated appetite decisions", health.capabilities.appetiteAutomation)}
           {row("Binding and policy issuance", health.capabilities.bindingAndPolicyIssuance)}

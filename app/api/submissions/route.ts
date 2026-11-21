@@ -76,7 +76,7 @@ export async function POST(request: Request) {
   const line = typeof body.line === "string" ? body.line.trim() : "";
   const zip = typeof body.zip === "string" ? body.zip.trim() : "";
   if (insured.length < 2) return Response.json({ error: "Enter the named insured or business name." }, { status: 400 });
-  if (!/^[A-Za-z0-9 /&().'-]{2,80}$/.test(line)) return Response.json({ error: "Choose a valid line of business." }, { status: 400 });
+  if (!/^[A-Za-z0-9 /&().’'-]{2,80}$/.test(line)) return Response.json({ error: "Choose a valid line of business." }, { status: 400 });
   if (!/^\d{5}(-\d{4})?$/.test(zip)) return Response.json({ error: "Enter a valid 5-digit ZIP code or ZIP+4." }, { status: 400 });
 
   try {

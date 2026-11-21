@@ -81,42 +81,45 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "Enter a valid official portal URL." }, { status: 400 });
   }
-  if (parsed.protocol !== "https:") {
-    return Response.json({ error: "Carrier portal URLs must use HTTPS." }, { status: 400 });
+  if (portalUrl) {
+    try { parsed = new URL(portalUrl); } catch {
+      return Response.json({ error: "Enter a valid official portal URL or leave it blank for now." }, { status: 400 });
+    }
+    if (parsed.protocol !== "https:") {
+      return Response.json({ error: "Carrier portal URLs must use HTTPS." }, { status: 400 });
+    }
+  } else {
+    parsed = new URL("https://placeholder.invalid");
   }
 
   try {
     const sql = neon(process.env.DATABASE_URL!);
     const result = await sql.transaction([
       sql`select set_config('app.user_id', ${context.userId}, true)`,
-      sql`insert into app.carriers (name, website, integration_status)
-        values (${name}, ${portalUrl}, 'pending_authorization')
-        on conflict (name) do update
-          set website = excluded.website, updated_at = now()
-        returning id`,
-    ]) as unknown as [Array<Record<string, unknown>>, Array<{ id: string }>];
-    const carrierId = result[1]?.[0]?.id;
-    if (!carrierId) throw new Error("Carrier was not created.");
-
-    await sql.transaction([
-      sql`select set_config('app.user_id', ${context.userId}, true)`,
-      sql`insert into app.carrier_connections
-        (carrier_id, connection_type, environment, status, capabilities)
-        values (
-          ${carrierId}::uuid,
-          ${mode},
-          'production',
-          'pending_authorization',
-          ${JSON.stringify({ portal_login: mode === "manual", api_authorization_required: mode !== "manual" })}::jsonb
+      sql`with carrier as (
+          insert into app.carriers (name, website, integration_status)
+          values (${name}, ${portalUrl || null}, 'pending_authorization')
+          on conflict (name) do update
+            set website = coalesce(excluded.website, app.carriers.website), updated_at = now()
+          returning id
+        ), connection as (
+          insert into app.carrier_connections
+            (carrier_id, connection_type, environment, status, capabilities)
+          select carrier.id, ${mode}, 'production', 'pending_authorization',
+            ${JSON.stringify({ portal_login: mode === 'manual', api_authorization_required: mode !== 'manual' })}::jsonb
+          from carrier
+          on conflict (carrier_id, connection_type, environment)
+          do update set status = 'pending_authorization', capabilities = excluded.capabilities, updated_at = now()
+          returning id, carrier_id
         )
-        on conflict (carrier_id, connection_type, environment)
-        do update set
-          status = 'pending_authorization',
-          capabilities = excluded.capabilities,
-          updated_at = now()`,
-    ]);
-    return Response.json({ success: true, carrierId }, { status: 201, headers: { "Cache-Control": "no-store" } });
-  } catch {
-    return Response.json({ error: "Could not save this carrier. Confirm your site administrator access and try again." }, { status: 500 });
+        select carrier.id as carrier_id, connection.id as connection_id
+        from carrier join connection on connection.carrier_id = carrier.id`,
+    ]) as unknown as [Array<Record<string, unknown>>, Array<{ carrier_id: string; connection_id: string }>];
+    const saved = result[1]?.[0];
+    if (!saved) throw new Error('Carrier or connection record was not returned.');
+    return Response.json({ success: true, carrierId: saved.carrier_id, connectionId: saved.connection_id }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    console.error('[api/carriers] POST failed', error);
+    return Response.json({ error: 'Could not save this carrier. Confirm site administrator access and check the database connection.', code: 'CARRIER_SAVE_FAILED' }, { status: 500 });
   }
 }

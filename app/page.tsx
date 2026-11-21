@@ -90,7 +90,7 @@ export default function Dashboard() {
 
   const filtered = useMemo(() => submissions.filter(s =>
     (s.insured + s.id + s.line + s.status).toLowerCase().includes(query.toLowerCase())
-  ), [query]);
+  ), [submissions, query]);
 
   const chooseNav = (name: string) => {
     setActive(name); setMobileOpen(false);

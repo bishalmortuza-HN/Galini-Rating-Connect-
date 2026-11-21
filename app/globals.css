@@ -95,3 +95,48 @@ html,body{background:var(--polar-white);color:var(--ink)}
 .workspace-switch{background:#F4F9FB;border-color:#E7EFF2}
 .workspace-avatar,.profile-avatar,.top-avatar{background:#E5F1F5;color:#28576B}
 @media(prefers-reduced-motion:no-preference){.primary-button,.line-card,.nav-item{transition:background .18s ease,border-color .18s ease,transform .18s ease}}
+
+/* Galini refined system palette: Rojo Racing / Azul Glaciar / Blanco Polar */
+:root{--racing-red:#D6283D;--racing-red-dark:#B91F33;--glacier-blue:#B8DDEB;--glacier-wash:#F0F7FA;--polar-white:#F8FBFC;--ink:#14263D;--muted:#687B8D;--line:#E4EDF1;--paper:#F8FBFC;--navy:#14263D;--blue:#D6283D;--blue2:#FCEDEF;--white:#FFFFFF}
+html,body{background:var(--polar-white);color:var(--ink)}
+.sidebar,.topbar,.panel,.stat-card,.line-card{background:#fff}
+.brand-mark{background:var(--racing-red);box-shadow:0 5px 13px #D6283D26}
+.brand-mark i{background:var(--glacier-blue);border-color:var(--racing-red)}
+.brand-name,.welcome-row h1{color:var(--navy)}
+.workspace-switch{background:#F4F9FB;border-color:#E7EFF2}
+.workspace-avatar,.profile-avatar,.top-avatar{background:#E5F1F5;color:#28576B}
+.nav-item:hover{background:#F0F7FA;color:var(--navy)}
+.nav-active{background:#EAF5F9;color:#183C53}
+.nav-active svg{color:var(--racing-red)}
+.primary-button{background:var(--racing-red);box-shadow:0 3px 8px #D6283D25}
+.primary-button:hover{background:var(--racing-red-dark)}
+.text-button,.stat-link,.support-card button,.carrier-open-link{color:var(--racing-red-dark)}
+.notice{background:#F0F8FB;border-color:#D8EAF1}
+.notice-icon{background:#DDEFF5;color:#24566C}
+.notice b{color:#23485B}
+.notice>button{color:var(--racing-red-dark)}
+.stat-icon.blue,.line-icon.blue{background:#FCEDEF;color:var(--racing-red)}
+.stat-icon.teal,.line-icon.teal{background:#E8F4F8;color:#376F85}
+.stat-icon.violet,.line-icon.violet,.stat-icon.indigo,.line-icon.indigo{background:#EDF5F8;color:#557D91}
+.stat-icon.amber,.line-icon.amber{background:#F0F7FA;color:#557D91}
+.line-icon.rose{background:#FCEDEF;color:var(--racing-red)}
+.line-icon.green{background:#E8F4F8;color:#376F85}
+.line-card:hover{border-color:var(--glacier-blue);box-shadow:0 4px 13px #17465A12}
+.progress-label{color:var(--racing-red-dark)}
+.progress-track span{background:var(--racing-red)}
+.status-review{background:#EAF4F8;color:#37677C}
+.status-needed{background:#FCEDEF;color:#B91F33}
+.environment{background:#F0F7FA;border-color:#E0ECF1;color:#496B7C}
+.environment i,.eyebrow-dot{background:var(--racing-red)}
+.modal-kicker{color:var(--racing-red-dark)}
+.select-wrap select:focus,.modal-input:focus{border-color:#8BBCCB;box-shadow:0 0 0 3px #EAF5F9}
+.modal-info{background:#F0F7FA;color:#536F7E}
+.modal-info svg{color:#376F85}
+.support-card{background:#F1F7FA;border-color:#E2EDF1}
+.support-icon{color:#376F85;background:#E0EFF4}
+.carrier-method{border-color:#E1EBEF}
+.carrier-method .line-icon{background:#EAF4F8;color:#376F85}
+.carrier-method .status-review{background:#FCEDEF;color:var(--racing-red-dark)}
+.carrier-form{background:#F8FBFC;border-color:#E1EBEF}
+.secondary-button:hover,.filter-button:hover{border-color:var(--glacier-blue);background:#F8FBFC}
+.search-box:focus-within{border-color:#8BBCCB;box-shadow:0 0 0 3px #EAF5F9}

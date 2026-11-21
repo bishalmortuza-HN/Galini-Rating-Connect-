@@ -15,9 +15,8 @@ import {
 type AccountProfile = { id: string; email: string; full_name: string; site_role: string; status: string };
 type AgencyMembership = { id: string; display_name: string; agency_status: string; role: string; membership_status: string };
 type Submission = {
-  id: string; insured: string; line: string; zip: string; status: string; carrier: string; date: string;
+  id: string; display_id: string; insured: string; line: string; zip: string; status: string; carrier: string; date: string;
 };
-const STORAGE_KEY = "galini-rate-connect-submissions-v2";
 const lines = [
   { name: "Personal Auto", detail: "Private passenger vehicles", icon: CarFront, color: "blue" },
   { name: "Homeowners", detail: "Home, condo & renters", icon: Home, color: "violet" },
@@ -55,21 +54,27 @@ export default function Dashboard() {
   const [zip, setZip] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [submissions, setSubmissions] = useState<Submission[]>(initialSubmissions);
-  const [loaded, setLoaded] = useState(false);
+  const [submissionsLoading, setSubmissionsLoading] = useState(true);
+  const [savingSubmission, setSavingSubmission] = useState(false);
+  const [submissionError, setSubmissionError] = useState("");
   const [account, setAccount] = useState<AccountProfile | null>(null);
   const [agencies, setAgencies] = useState<AgencyMembership[]>([]);
   const [accountError, setAccountError] = useState("");
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved) setSubmissions(JSON.parse(saved) as Submission[]);
-    } catch { /* Keep the workspace empty if browser storage is unavailable. */ }
-    setLoaded(true);
+    let active = true;
+    fetch("/api/submissions", { cache: "no-store" })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to load submissions.");
+        if (active) setSubmissions(data.submissions as Submission[]);
+      })
+      .catch(error => {
+        if (active) setSubmissionError(error instanceof Error ? error.message : "Unable to load submissions.");
+      })
+      .finally(() => { if (active) setSubmissionsLoading(false); });
+    return () => { active = false; };
   }, []);
-  useEffect(() => {
-    if (loaded) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(submissions));
-  }, [submissions, loaded]);
 
   useEffect(() => {
     let active = true;
@@ -91,18 +96,29 @@ export default function Dashboard() {
     setActive(name); setMobileOpen(false);
     if (name === "New Quote") setShowQuote(true);
   };
-  const createDraft = () => {
-    if (!insured.trim() || !zip.trim()) return;
-    const item: Submission = {
-      id: `GRC-${Date.now().toString().slice(-7)}`, insured: insured.trim(),
-      line: selectedLine, zip: zip.trim(), status: "Draft", carrier: "Not submitted",
-      date: new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
-    };
-    setSubmissions(current => [item, ...current]);
-    setInsured(""); setZip(""); setShowQuote(false); setActive("Submissions");
+  const createDraft = async () => {
+    if (!insured.trim() || !zip.trim() || savingSubmission) return;
+    setSavingSubmission(true);
+    setSubmissionError("");
+    try {
+      const response = await fetch("/api/submissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ insured: insured.trim(), line: selectedLine, zip: zip.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not save this submission.");
+      setSubmissions(current => [data.submission as Submission, ...current]);
+      setInsured(""); setZip(""); setShowQuote(false); setActive("Submissions");
+    } catch (error) {
+      setSubmissionError(error instanceof Error ? error.message : "Could not save this submission.");
+    } finally {
+      setSavingSubmission(false);
+    }
   };
 
-  const statusClass = (status: string) => status === "Under review" ? "status-review" : status === "Information needed" ? "status-needed" : "status-draft";
+  const statusLabel = (status: string) => status.replaceAll("_", " ").replace(/\\b\\w/g, letter => letter.toUpperCase());
+  const statusClass = (status: string) => status === "appetite_review" || status === "submitted" ? "status-review" : status === "referred" || status === "error" ? "status-needed" : "status-draft";
 
   const signOut = async () => {
     await authClient.signOut();
@@ -113,8 +129,8 @@ export default function Dashboard() {
     <div className="panel-heading"><div><h2>Submission pipeline</h2><p>Draft applications and submissions in your workspace.</p></div><button className="primary-button" onClick={() => setShowQuote(true)}><Plus size={15}/> New submission</button></div>
     <div className="table-toolbar"><div className="search-box"><Search size={15}/><input placeholder="Search insured, ID or line..." value={query} onChange={e => setQuery(e.target.value)}/></div><span className="muted">{filtered.length} records</span></div>
     <div className="table-wrap"><table><thead><tr><th>INSURED / ID</th><th>LINE</th><th>ZIP</th><th>STATUS</th><th>UPDATED</th></tr></thead><tbody>
-      {filtered.map(s => <tr key={s.id}><td><b>{s.insured}</b><small>{s.id}</small></td><td>{s.line}</td><td>{s.zip}</td><td><span className={`status ${statusClass(s.status)}`}>{s.status}</span></td><td>{s.date}</td></tr>)}
-      {!filtered.length && <tr><td colSpan={5} className="empty-row">No matching submissions. Create a quote to get started.</td></tr>}
+      {filtered.map(s => <tr key={s.id}><td><b>{s.insured}</b><small>{s.display_id}</small></td><td>{s.line}</td><td>{s.zip}</td><td><span className={`status ${statusClass(s.status)}`}>{statusLabel(s.status)}</span></td><td>{s.date}</td></tr>)}
+      {!filtered.length && <tr><td colSpan={5} className="empty-row">{submissionsLoading ? "Loading agency submissions…" : "No agency submissions yet. Create a draft to get started."}</td></tr>}
     </tbody></table></div>
   </div>;
 
@@ -156,9 +172,10 @@ export default function Dashboard() {
          {account?.status === "pending" && <div className="notice"><div className="notice-icon"><ShieldCheck size={17}/></div><div><b>Account awaiting administrator approval</b><p>Your sign-in is active, but agency workspace features will remain restricted until an administrator approves your account.</p></div></div>}
          {account?.status === "suspended" && <div className="notice"><div className="notice-icon"><ShieldCheck size={17}/></div><div><b>Account suspended</b><p>Please contact your Galini site administrator to review access.</p></div></div>}
          {account?.status === "active" && agencies.length === 0 && <div className="notice"><div className="notice-icon"><Building2 size={17}/></div><div><b>No approved agency membership</b><p>Your account is active, but no approved agency workspace is assigned yet.</p></div></div>}
+        {submissionError && !showQuote && <div className="notice" role="alert"><div className="notice-icon"><ShieldCheck size={17}/></div><div><b>Submission workspace notice</b><p>{submissionError}</p></div></div>}
         <div className="welcome-row"><div><div className="eyebrow"><span className="eyebrow-dot"/> GALINI RATE & CONNECT</div><h1>{active === "Overview" ? `Good morning${account?.full_name ? `, ${account.full_name.split(" ")[0]}` : ""}` : active}</h1><p className="welcome-sub">{active === "Overview" ? "Your insurance workflow workspace at a glance." : "Manage this area of your agency workspace."}</p></div><button className="primary-button" onClick={() => setShowQuote(true)}><Plus size={17}/> Start a new quote</button></div>
         {active === "Overview" ? <>
-          <div className="notice"><div className="notice-icon"><Zap size={17}/></div><div><b>Development workspace — setup in progress</b><p>Carrier connections and live rating are not active. Current draft records are stored in this browser only.</p></div><button onClick={() => chooseNav("Carrier Connections")}>View connections <ArrowRight size={14}/></button></div>
+          <div className="notice"><div className="notice-icon"><Zap size={17}/></div><div><b>Development workspace — setup in progress</b><p>Agency submissions are stored in the shared database. Carrier connections, live premiums and binding are not active.</p></div><button onClick={() => chooseNav("Carrier Connections")}>View connections <ArrowRight size={14}/></button></div>
           <div className="stat-grid">
             <div className="stat-card"><div className="stat-top"><span>Submissions</span><span className="stat-icon blue"><ClipboardList size={17}/></span></div><div className="stat-number">{String(submissions.length).padStart(2,"0")}</div><div className="stat-foot"><span className="muted">In this workspace</span><span className="stat-link" onClick={() => chooseNav("Submissions")}>View all <ArrowRight size={13}/></span></div></div>
             <div className="stat-card"><div className="stat-top"><span>Draft quotes</span><span className="stat-icon violet"><FileText size={17}/></span></div><div className="stat-number">{String(submissions.filter(s => s.status === "Draft").length).padStart(2,"0")}</div><div className="stat-foot"><span className="muted">Not submitted</span><span className="positive"><ArrowUpRight size={13}/> Drafts</span></div></div>
@@ -172,12 +189,13 @@ export default function Dashboard() {
         <footer><span>© 2026 Galini Rate & Connect</span><span>Insurance workflow platform <i/> Development preview</span></footer>
       </div>
     </section>
-    {showQuote && <div className="modal-backdrop" onClick={() => setShowQuote(false)}><div className="quote-modal" onClick={e => e.stopPropagation()}><div className="modal-head"><div><div className="modal-kicker">NEW SUBMISSION</div><h2>Start an insurance quote</h2><p>Create a local draft submission. No carrier is contacted.</p></div><button className="icon-button" onClick={() => setShowQuote(false)} aria-label="Close"><X size={19}/></button></div>
+    {showQuote && <div className="modal-backdrop" onClick={() => setShowQuote(false)}><div className="quote-modal" onClick={e => e.stopPropagation()}><div className="modal-head"><div><div className="modal-kicker">NEW SUBMISSION</div><h2>Start an insurance quote</h2><p>Save a shared agency draft. No carrier is contacted or rated.</p></div><button className="icon-button" onClick={() => setShowQuote(false)} aria-label="Close"><X size={19}/></button></div>
       <label className="field-label">Line of business</label><div className="select-wrap"><select value={selectedLine} onChange={e => setSelectedLine(e.target.value)}>{lines.map(l => <option key={l.name}>{l.name}</option>)}</select><ChevronDown size={16}/></div>
       <label className="field-label">Named insured / business name</label><input className="modal-input" placeholder="Enter applicant or business name" value={insured} onChange={e => setInsured(e.target.value)}/>
       <label className="field-label">Primary location ZIP code</label><input className="modal-input" placeholder="e.g. 07001" maxLength={10} value={zip} onChange={e => setZip(e.target.value)}/>
-      <div className="modal-info"><ShieldCheck size={16}/> Drafts are stored in this browser only for now. Shared database storage and carrier integrations are the next phase.</div>
-      <div className="modal-actions"><button className="secondary-button" onClick={() => setShowQuote(false)}>Cancel</button><button className="primary-button" disabled={!insured.trim() || !zip.trim()} onClick={createDraft}>Create draft <ArrowRight size={15}/></button></div>
+      {submissionError && <div className="modal-info" role="alert"><ShieldCheck size={16}/> {submissionError}</div>}
+      <div className="modal-info"><ShieldCheck size={16}/> Drafts are saved to your approved agency workspace. Carrier rating and binding are not triggered.</div>
+      <div className="modal-actions"><button className="secondary-button" onClick={() => setShowQuote(false)}>Cancel</button><button className="primary-button" disabled={!insured.trim() || !/^\\d{5}(-\\d{4})?$/.test(zip.trim()) || savingSubmission} onClick={createDraft}>{savingSubmission ? "Saving…" : "Create draft"} <ArrowRight size={15}/></button></div>
     </div></div>}
   </main>;
 }

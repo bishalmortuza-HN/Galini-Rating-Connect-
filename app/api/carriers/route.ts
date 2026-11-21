@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth/server";
 export const dynamic = "force-dynamic";
 
 type AdminContext =
-  | { ok: true; sql: ReturnType<typeof neon>; userId: string }
+  | { ok: true; userId: string }
   | { ok: false; response: Response };
 
 async function getAdmin(): Promise<AdminContext> {
@@ -21,23 +21,24 @@ async function getAdmin(): Promise<AdminContext> {
     const result = await sql.transaction([
       sql`select set_config('app.user_id', ${data.user.id}, true)`,
       sql`select app.is_site_admin() as allowed`,
-    ]);
+    ]) as unknown as [Array<Record<string, unknown>>, Array<{ allowed: boolean }>];
     if (!result[1]?.[0]?.allowed) {
       return { ok: false, response: Response.json({ error: "Site administrator access is required to manage carrier connections." }, { status: 403 }) };
     }
   } catch {
     return { ok: false, response: Response.json({ error: "Carrier settings are unavailable for this account." }, { status: 403 }) };
   }
-  return { ok: true, sql, userId: data.user.id };
+  return { ok: true, userId: data.user.id };
 }
 
 export async function GET() {
   const context = await getAdmin();
   if (!context.ok) return context.response;
   try {
-    const result = await context.sql.transaction([
-      context.sql`select set_config('app.user_id', ${context.userId}, true)`,
-      context.sql`select c.id, c.name, c.website, c.integration_status,
+    const sql = neon(process.env.DATABASE_URL!);
+    const result = await sql.transaction([
+      sql`select set_config('app.user_id', ${context.userId}, true)`,
+      sql`select c.id, c.name, c.website, c.integration_status,
         cc.connection_type, cc.status as connection_status, cc.environment
         from app.carriers c
         left join lateral (
@@ -48,7 +49,7 @@ export async function GET() {
           limit 1
         ) cc on true
         order by c.name asc`,
-    ]);
+    ]) as unknown as [Array<Record<string, unknown>>, Array<Record<string, unknown>>];
     return Response.json({ carriers: result[1] || [] }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return Response.json({ error: "Could not load carrier records." }, { status: 500 });
@@ -85,20 +86,21 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await context.sql.transaction([
-      context.sql`select set_config('app.user_id', ${context.userId}, true)`,
-      context.sql`insert into app.carriers (name, website, integration_status)
+    const sql = neon(process.env.DATABASE_URL!);
+    const result = await sql.transaction([
+      sql`select set_config('app.user_id', ${context.userId}, true)`,
+      sql`insert into app.carriers (name, website, integration_status)
         values (${name}, ${portalUrl}, 'pending_authorization')
         on conflict (name) do update
           set website = excluded.website, updated_at = now()
         returning id`,
-    ]);
+    ]) as unknown as [Array<Record<string, unknown>>, Array<{ id: string }>];
     const carrierId = result[1]?.[0]?.id;
     if (!carrierId) throw new Error("Carrier was not created.");
 
-    await context.sql.transaction([
-      context.sql`select set_config('app.user_id', ${context.userId}, true)`,
-      context.sql`insert into app.carrier_connections
+    await sql.transaction([
+      sql`select set_config('app.user_id', ${context.userId}, true)`,
+      sql`insert into app.carrier_connections
         (carrier_id, connection_type, environment, status, capabilities)
         values (
           ${carrierId}::uuid,

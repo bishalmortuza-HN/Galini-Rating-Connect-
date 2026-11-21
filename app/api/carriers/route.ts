@@ -76,11 +76,6 @@ export async function POST(request: Request) {
   }
 
   let parsed: URL;
-  try {
-    parsed = new URL(portalUrl);
-  } catch {
-    return Response.json({ error: "Enter a valid official portal URL." }, { status: 400 });
-  }
   if (portalUrl) {
     try { parsed = new URL(portalUrl); } catch {
       return Response.json({ error: "Enter a valid official portal URL or leave it blank for now." }, { status: 400 });

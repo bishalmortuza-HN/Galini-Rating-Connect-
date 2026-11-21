@@ -42,21 +42,19 @@ export async function GET() {
           to_char(s.updated_at, 'Mon DD, YYYY') as date
         from app.submissions s
         join app.applicants ap on ap.id = s.applicant_id
-        join app.agency_memberships am on am.agency_id = s.agency_id
-        join app.users u on u.id = am.user_id
-        join app.agencies a on a.id = am.agency_id
-        where u.auth_subject = ${user.id}
-          and u.status = 'active'
-          and am.status = 'active'
-          and a.status = 'approved'
+        where app.is_site_admin() or app.has_active_membership(s.agency_id)
         order by s.updated_at desc
         limit 200`,
     ]);
     return Response.json({ submissions: results[1] ?? [] }, {
-      headers: { "Cache-Control": "no-store" },
+      headers: { 'Cache-Control': 'no-store' },
     });
-  } catch {
-    return Response.json({ error: "Unable to load submissions. Check database access and agency permissions." }, { status: 503 });
+  } catch (error) {
+    console.error('[api/submissions] GET failed', error);
+    return Response.json({
+      error: 'The submission service could not read the database. Refresh once; if this continues, contact the site administrator.',
+      code: 'SUBMISSIONS_LOAD_FAILED',
+    }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
   }
 }
 
@@ -139,7 +137,8 @@ export async function POST(request: Request) {
     const row = created[1]?.[0];
     if (!row) throw new Error("Submission was not created.");
     return Response.json({ submission: row }, { status: 201, headers: { "Cache-Control": "no-store" } });
-  } catch {
-    return Response.json({ error: "Could not save the submission. Verify your approved agency access and try again." }, { status: 503 });
+  } catch (error) {
+    console.error('[api/submissions] POST failed', error);
+    return Response.json({ error: 'Could not save the submission. Verify your approved agency access and database connection.', code: 'SUBMISSION_SAVE_FAILED' }, { status: 503 });
   }
 }

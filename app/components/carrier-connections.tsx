@@ -35,7 +35,7 @@ export default function CarrierConnections() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not save carrier.");
       setName(""); setPortalUrl(""); setMode("manual"); setShowForm(false);
-      setNotice("Carrier saved. Portal access is manual; API rating is not active until the carrier authorizes an integration.");
+      setNotice("Carrier saved. Add the official portal URL when available. Portal access remains manual and API rating is inactive until authorized.");
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Could not save carrier."); }
     finally { setSaving(false); }
@@ -50,9 +50,9 @@ export default function CarrierConnections() {
     {notice && <div className="notice"><div className="notice-icon"><ShieldCheck size={17}/></div><div><b>Saved</b><p>{notice}</p></div></div>}
     {error && <div className="notice"><div className="notice-icon"><ShieldCheck size={17}/></div><div><b>Carrier settings</b><p>{error}</p></div></div>}
     {showForm && <form className="carrier-form" onSubmit={save}>
-      <div className="section-heading"><div><h2>Add carrier</h2><p>Store the carrier name and official portal URL. Do not enter passwords here.</p></div></div>
+      <div className="section-heading"><div><h2>Add carrier</h2><p>Add the carrier now; the official portal URL can be added when you have it. Never enter passwords here.</p></div></div>
       <label className="field-label">Carrier name</label><input className="modal-input" required maxLength={120} placeholder="e.g. Travelers" value={name} onChange={e => setName(e.target.value)}/>
-      <label className="field-label">Official agent portal / website URL</label><input className="modal-input" type="url" required placeholder="https://..." value={portalUrl} onChange={e => setPortalUrl(e.target.value)}/>
+      <label className="field-label">Official agent portal / website URL (optional)</label><input className="modal-input" type="url" placeholder="https://..." value={portalUrl} onChange={e => setPortalUrl(e.target.value)}/>
       <label className="field-label">Connection method</label><div className="select-wrap"><select value={mode} onChange={e => setMode(e.target.value)}><option value="manual">Portal login (manual)</option><option value="direct_api">Direct API (authorization pending)</option><option value="aggregator">Approved aggregator (authorization pending)</option></select></div>
       <div className="modal-info"><ShieldCheck size={16}/> Passwords and MFA codes are never stored by this form. Use the carrier's own sign-in page. API secrets must be provisioned through secure server-side secret storage before activation.</div>
       <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowForm(false)}>Cancel</button><button className="primary-button" disabled={saving}>{saving ? "Saving..." : "Save carrier"}</button></div>
